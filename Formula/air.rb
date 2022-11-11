@@ -5,6 +5,13 @@ class Air < Formula
     header: "Authorization: token #{ENV["HOMEBREW_GITHUB_API_TOKEN"]}"
   sha256 "f762994733fad62bb1724fbcecc30e580eb3d88b5acf1f8896c223f666a6ef1b"
 
+  bottle do
+    root_url "https://github.com/helixerio/homebrew-brews/releases/download/air-1.40.4"
+    sha256 cellar: :any_skip_relocation, arm64_monterey: "2a7ebb1d95dc35da8770409eb7a2cfa30141230257534c2c7c0c83f200bb70a5"
+    sha256 cellar: :any_skip_relocation, monterey:       "8b4a990cd6aef2252827e88bf93c449f78ff2c31293ad1a46b646ac575347d7d"
+    sha256 cellar: :any_skip_relocation, x86_64_linux:   "c64aff833f84b6df93d3a97b128370a29be399e3b051f85f1192f89e2c66117c"
+  end
+
   depends_on "go" => :build
 
   def install
