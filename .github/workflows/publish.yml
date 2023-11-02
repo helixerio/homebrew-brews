@@ -1,4 +1,5 @@
 name: brew publish
+
 on:
   pull_request_target:
     types:
@@ -7,17 +8,20 @@ on:
 jobs:
   publish:
     if: contains(github.event.pull_request.labels.*.name, 'publish')
-    runs-on: ubuntu-latest
+    runs-on: [ self.hosted ]
+    container:
+      image: registry.services.helixer.dev/helixer/ubuntu-dind:latest
+      options: --privileged
     steps:
       - name: Setup Git Environment
         run: git config --global init.defaultBranch main
 
-      - name: Set up Homebrew
+      - name: Setup Homebrew
         uses: Homebrew/actions/setup-homebrew@master
         with:
           test-bot: false
 
-      - name: Set up git
+      - name: Setup Git User
         uses: Homebrew/actions/git-user-config@master
 
       - name: Pull bottles

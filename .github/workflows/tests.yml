@@ -1,19 +1,23 @@
 name: brew test-bot
+
 on:
   pull_request:
 
 jobs:
   test-bot:
+    runs-on: [ self-hosted, "${{ matrix.arch }}" ]
+    container:
+      image: registry.services.helixer.dev/helixer/ubuntu-dind:latest
+      options: --privileged
     strategy:
       matrix:
-        os: [ubuntu-22.04, macos-12]
-    runs-on: ${{ matrix.os }}
+        arch: [ amd64, arm64 ]
     steps:
       - name: Setup Git Environment
         run: git config --global init.defaultBranch main
 
-      - name: Set up Homebrew
-        id: set-up-homebrew
+      - name: Setup Homebrew
+        id: setup-homebrew
         uses: Homebrew/actions/setup-homebrew@master
         with:
           token: ${{ secrets.PRIVATE_TOKEN }}
@@ -22,8 +26,8 @@ jobs:
         id: cache
         uses: actions/cache@v1
         with:
-          path: ${{ steps.set-up-homebrew.outputs.gems-path }}
-          key: ${{ runner.os }}-rubygems-${{ steps.set-up-homebrew.outputs.gems-hash }}
+          path: ${{ steps.setup-homebrew.outputs.gems-path }}
+          key: ${{ runner.os }}-rubygems-${{ steps.setup-homebrew.outputs.gems-hash }}
           restore-keys: ${{ runner.os }}-rubygems-
 
       - name: Install Homebrew Bundler RubyGems
@@ -31,8 +35,8 @@ jobs:
         run: brew install-bundler-gems
 
       - run: brew test-bot --only-cleanup-before
-      - run: brew test-bot --only-setup
       - run: brew test-bot --only-tap-syntax
+      - run: mkdir -p /home/linuxbrew/.linuxbrew/Cellar/gnu-tar/1.35/.brew
 
       - run: brew test-bot --only-formulae
         env:
