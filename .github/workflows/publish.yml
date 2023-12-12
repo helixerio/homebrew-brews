@@ -8,10 +8,9 @@ on:
 jobs:
   publish:
     if: contains(github.event.pull_request.labels.*.name, 'publish')
-    runs-on: [ self.hosted ]
+    runs-on: [ self-hosted ]
     container:
       image: registry.services.helixer.dev/helixer/ubuntu-dind:latest
-      options: --privileged
     steps:
       - name: Setup Git Environment
         run: git config --global init.defaultBranch main

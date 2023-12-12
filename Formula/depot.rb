@@ -6,10 +6,10 @@ class Depot < Formula
   sha256 "4fe26ca0aa59cebaea45a2c12a0672b365ddd5bc149fa00241cdde2af27f48b9"
 
   bottle do
-    root_url "https://github.com/helixerio/homebrew-brews/releases/download/depot-0.1.0"
-    sha256 cellar: :any_skip_relocation, arm64_monterey: "5239091543e32995e6799114c7740dd66e0b858f72d94ef1348d9c775a39f4d2"
-    sha256 cellar: :any_skip_relocation, monterey:       "5aac48bd01cefacbc84ebae81bf3972589ff40f1728c7416aab8ef3cca80efd9"
-    sha256 cellar: :any_skip_relocation, x86_64_linux:   "2ae0217db41d7b6546c6df71b0b4861f42e15c495171e35e708a2b6297808913"
+    root_url "https://github.com/helixerio/homebrew-brews/releases/download/depot-0.3.1"
+    sha256 cellar: :any_skip_relocation, arm64_sonoma:  "9057eafe23ead2e77151d8eddd7d1afbbef836298ba36f36e844a577802fcb20"
+    sha256 cellar: :any_skip_relocation, aarch64_linux: "e28cfc46e1aeaa0fdce90d1e7df51d45efedd6784d56ec26dd19722af24119bd"
+    sha256 cellar: :any_skip_relocation, x86_64_linux:  "13f2a00f315640c2670eae95f72217819c8edb06df809dcfc5c66fba2a9e3a48"
   end
 
   def install
