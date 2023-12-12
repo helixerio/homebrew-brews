@@ -1,9 +1,9 @@
 class Air < Formula
   desc "Live reload for Go apps"
   homepage "https://github.com/cosmtrek/air"
-  url "https://github.com/cosmtrek/air/archive/refs/tags/v1.40.4.tar.gz",
+  url "https://github.com/cosmtrek/air/archive/refs/tags/v1.49.0.tar.gz",
     header: "Authorization: token #{ENV["HOMEBREW_GITHUB_API_TOKEN"]}"
-  sha256 "f762994733fad62bb1724fbcecc30e580eb3d88b5acf1f8896c223f666a6ef1b"
+  sha256 "2e328445deb1a953b85a874f846ea6b73f2886f36a5dc0ef4261b69bcf05d6d2"
 
   bottle do
     root_url "https://github.com/helixerio/homebrew-brews/releases/download/air-1.40.4"
