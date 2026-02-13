@@ -54,9 +54,9 @@ jobs:
           # test-bot writes steps_output.txt and bottles to cwd
           chown -R linuxbrew:linuxbrew "$GITHUB_WORKSPACE"
 
-      # test-bot detects the tap from cwd, so cd into the tap directory
+      # test-bot detects the tap from cwd, so cd into the tap directory.
+      # Skip --only-tap-syntax: it always audits homebrew/core, not third-party taps.
       - run: sudo -H -u linuxbrew bash -c "source /tmp/brew-env.sh && cd \$TAP_DIR && brew test-bot --only-cleanup-before"
-      - run: sudo -H -u linuxbrew bash -c "source /tmp/brew-env.sh && cd \$TAP_DIR && brew test-bot --only-tap-syntax"
 
       - name: brew test-bot --only-formulae
         run: sudo -H -u linuxbrew bash -c "source /tmp/brew-env.sh && cd \$TAP_DIR && brew test-bot --only-formulae --root-url='https://ghcr.io/v2/helixerio/homebrew-brews'"
@@ -66,5 +66,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: bottles
-          path: '~/.cache/Homebrew/test-bot/**/*.bottle.*'
+          path: /home/linuxbrew/.linuxbrew/Homebrew/Library/Taps/helixerio/homebrew-brews/*.bottle.*
           if-no-files-found: ignore
