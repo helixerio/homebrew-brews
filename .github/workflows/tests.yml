@@ -32,39 +32,39 @@ jobs:
           sudo -u linuxbrew git -C "$TAP_DIR" checkout --force -B '${{ github.event.pull_request.head.ref }}' 'origin/${{ github.event.pull_request.head.ref }}'
 
           # Write env file so each step can source it with sudo
-          cat > /tmp/brew-env.sh << 'BREWEOF'
-          export PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
+          cat > /tmp/brew-env.sh << BREWEOF
+          export PATH="/home/linuxbrew/.linuxbrew/bin:\$PATH"
+          export TAP_DIR="$TAP_DIR"
+          export HOMEBREW_GITHUB_API_TOKEN="$HOMEBREW_GITHUB_API_TOKEN"
+          export HOMEBREW_NO_AUTO_UPDATE=1
+          export GITHUB_ACTIONS="${GITHUB_ACTIONS:-}"
+          export GITHUB_BASE_REF="${GITHUB_BASE_REF:-}"
+          export GITHUB_EVENT_NAME="${GITHUB_EVENT_NAME:-}"
+          export GITHUB_EVENT_PATH="${GITHUB_EVENT_PATH:-}"
+          export GITHUB_OUTPUT="${GITHUB_OUTPUT:-}"
+          export GITHUB_REF="${GITHUB_REF:-}"
+          export GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-}"
+          export GITHUB_SHA="${GITHUB_SHA:-}"
+          export GITHUB_STEP_SUMMARY="${GITHUB_STEP_SUMMARY:-}"
+          export GITHUB_WORKSPACE="${GITHUB_WORKSPACE:-}"
+          export RUNNER_TEMP="${RUNNER_TEMP:-}"
+          export RUNNER_OS="${RUNNER_OS:-}"
           BREWEOF
-          {
-            echo "export HOMEBREW_GITHUB_API_TOKEN=\"$HOMEBREW_GITHUB_API_TOKEN\""
-            echo "export HOMEBREW_NO_AUTO_UPDATE=1"
-            echo "export GITHUB_ACTIONS=\"${GITHUB_ACTIONS:-}\""
-            echo "export GITHUB_BASE_REF=\"${GITHUB_BASE_REF:-}\""
-            echo "export GITHUB_EVENT_NAME=\"${GITHUB_EVENT_NAME:-}\""
-            echo "export GITHUB_EVENT_PATH=\"${GITHUB_EVENT_PATH:-}\""
-            echo "export GITHUB_OUTPUT=\"${GITHUB_OUTPUT:-}\""
-            echo "export GITHUB_REF=\"${GITHUB_REF:-}\""
-            echo "export GITHUB_REPOSITORY=\"${GITHUB_REPOSITORY:-}\""
-            echo "export GITHUB_SHA=\"${GITHUB_SHA:-}\""
-            echo "export GITHUB_STEP_SUMMARY=\"${GITHUB_STEP_SUMMARY:-}\""
-            echo "export GITHUB_WORKSPACE=\"${GITHUB_WORKSPACE:-}\""
-            echo "export RUNNER_TEMP=\"${RUNNER_TEMP:-}\""
-            echo "export RUNNER_OS=\"${RUNNER_OS:-}\""
-          } >> /tmp/brew-env.sh
 
-          # test-bot writes steps_output.txt and bottles to $GITHUB_WORKSPACE
+          # test-bot writes steps_output.txt and bottles to cwd
           chown -R linuxbrew:linuxbrew "$GITHUB_WORKSPACE"
 
-      - run: sudo -H -u linuxbrew bash -c "source /tmp/brew-env.sh && cd $GITHUB_WORKSPACE && brew test-bot --only-cleanup-before"
-      - run: sudo -H -u linuxbrew bash -c "source /tmp/brew-env.sh && cd $GITHUB_WORKSPACE && brew test-bot --only-tap-syntax"
+      # test-bot detects the tap from cwd, so cd into the tap directory
+      - run: sudo -H -u linuxbrew bash -c "source /tmp/brew-env.sh && cd \$TAP_DIR && brew test-bot --only-cleanup-before"
+      - run: sudo -H -u linuxbrew bash -c "source /tmp/brew-env.sh && cd \$TAP_DIR && brew test-bot --only-tap-syntax"
 
       - name: brew test-bot --only-formulae
-        run: sudo -H -u linuxbrew bash -c "source /tmp/brew-env.sh && cd $GITHUB_WORKSPACE && brew test-bot --only-formulae"
+        run: sudo -H -u linuxbrew bash -c "source /tmp/brew-env.sh && cd \$TAP_DIR && brew test-bot --only-formulae --root-url='https://ghcr.io/v2/helixerio/homebrew-brews'"
 
       - name: Upload bottles as artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: bottles
-          path: '*.bottle.*'
+          path: '~/.cache/Homebrew/test-bot/**/*.bottle.*'
           if-no-files-found: ignore
