@@ -35,16 +35,14 @@ jobs:
           CHANGED=$(curl -sf \
             -H "Authorization: token ${{ github.token }}" \
             "https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
-            | python3 -c "
-          import json, sys
-          files = json.load(sys.stdin)
-          formulae = []
-          for f in files:
-              name = f['filename']
-              if name.startswith('Formula/') and name.endswith('.rb'):
-                  formulae.append(name.split('/')[-1].replace('.rb', ''))
-          print(' '.join(formulae))
-          ")
+            | ruby -rjson -e '
+              files = JSON.parse(STDIN.read)
+              formulae = files
+                .map { |f| f["filename"] }
+                .select { |n| n.start_with?("Formula/") && n.end_with?(".rb") }
+                .map { |n| File.basename(n, ".rb") }
+              puts formulae.join(" ")
+            ')
           echo "Detected changed formulae: $CHANGED"
 
           # Derive the tap name (e.g. helixerio/brews)
