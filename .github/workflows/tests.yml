@@ -7,7 +7,7 @@ jobs:
   test:
     runs-on: leafblower-k8s-amd64
     container:
-      image: registry.services.helixer.io/ghcr-io/homebrew/ubuntu22.04:latest
+      image: registry.services.helixer.dev/ghcr-io/homebrew/ubuntu22.04:latest
     steps:
       - name: Setup tap
         env:
