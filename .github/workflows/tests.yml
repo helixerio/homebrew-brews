@@ -35,8 +35,8 @@ jobs:
           CHANGED=$(curl -sf \
             -H "Authorization: token ${{ github.token }}" \
             "https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
-            | grep -o '"filename":"Formula/[^"]*\.rb"' \
-            | sed 's|"filename":"Formula/||;s|\.rb"||' \
+            | grep -oE '"filename" *: *"Formula/[^"]*\.rb"' \
+            | sed 's|.*"Formula/||;s|\.rb"||' \
             | tr '\n' ' ')
           echo "Detected changed formulae: $CHANGED"
 
