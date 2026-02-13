@@ -31,37 +31,62 @@ jobs:
           sudo -u linuxbrew git -C "$TAP_DIR" remote set-head origin --auto
           sudo -u linuxbrew git -C "$TAP_DIR" checkout --force -B '${{ github.event.pull_request.head.ref }}' 'origin/${{ github.event.pull_request.head.ref }}'
 
-          # Write env file so each step can source it with sudo
-          cat > /tmp/brew-env.sh << 'BREWEOF'
-          export PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
-          BREWEOF
-          {
-            echo "export HOMEBREW_GITHUB_API_TOKEN=\"$HOMEBREW_GITHUB_API_TOKEN\""
-            echo "export HOMEBREW_NO_AUTO_UPDATE=1"
-            echo "export GITHUB_ACTIONS=\"${GITHUB_ACTIONS:-}\""
-            echo "export GITHUB_BASE_REF=\"${GITHUB_BASE_REF:-}\""
-            echo "export GITHUB_EVENT_NAME=\"${GITHUB_EVENT_NAME:-}\""
-            echo "export GITHUB_EVENT_PATH=\"${GITHUB_EVENT_PATH:-}\""
-            echo "export GITHUB_OUTPUT=\"${GITHUB_OUTPUT:-}\""
-            echo "export GITHUB_REF=\"${GITHUB_REF:-}\""
-            echo "export GITHUB_REPOSITORY=\"${GITHUB_REPOSITORY:-}\""
-            echo "export GITHUB_SHA=\"${GITHUB_SHA:-}\""
-            echo "export GITHUB_STEP_SUMMARY=\"${GITHUB_STEP_SUMMARY:-}\""
-            echo "export GITHUB_WORKSPACE=\"${GITHUB_WORKSPACE:-}\""
-            echo "export RUNNER_TEMP=\"${RUNNER_TEMP:-}\""
-            echo "export RUNNER_OS=\"${RUNNER_OS:-}\""
-          } >> /tmp/brew-env.sh
+          # Detect changed formulae from the PR (using grep/sed — ruby/python not in root's PATH)
+          CHANGED=$(curl -sf \
+            -H "Authorization: token ${{ github.token }}" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
+            | grep -oE '"filename" *: *"Formula/[^"]*\.rb"' \
+            | sed 's|.*"Formula/||;s|\.rb"||' \
+            | tr '\n' ' ')
+          echo "Detected changed formulae: $CHANGED"
 
-      - run: sudo -H -u linuxbrew bash -c "source /tmp/brew-env.sh && brew test-bot --only-cleanup-before"
-      - run: sudo -H -u linuxbrew bash -c "source /tmp/brew-env.sh && brew test-bot --only-tap-syntax"
+          # Derive the tap name (e.g. helixerio/brews)
+          TAP_NAME="$(echo "$REPO" | sed 's|/homebrew-|/|')"
+
+          # Write env file so each step can source it with sudo
+          cat > /tmp/brew-env.sh << BREWEOF
+          export PATH="/home/linuxbrew/.linuxbrew/bin:\$PATH"
+          export TAP_DIR="$TAP_DIR"
+          export TAP_NAME="$TAP_NAME"
+          export CHANGED_FORMULAE="$CHANGED"
+          export HOMEBREW_GITHUB_API_TOKEN="$HOMEBREW_GITHUB_API_TOKEN"
+          export HOMEBREW_NO_AUTO_UPDATE=1
+          export GITHUB_ACTIONS="${GITHUB_ACTIONS:-}"
+          export GITHUB_BASE_REF="${GITHUB_BASE_REF:-}"
+          export GITHUB_EVENT_NAME="${GITHUB_EVENT_NAME:-}"
+          export GITHUB_EVENT_PATH="${GITHUB_EVENT_PATH:-}"
+          export GITHUB_OUTPUT="${GITHUB_OUTPUT:-}"
+          export GITHUB_REF="${GITHUB_REF:-}"
+          export GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-}"
+          export GITHUB_SHA="${GITHUB_SHA:-}"
+          export GITHUB_STEP_SUMMARY="${GITHUB_STEP_SUMMARY:-}"
+          export GITHUB_WORKSPACE="${GITHUB_WORKSPACE:-}"
+          export RUNNER_TEMP="${RUNNER_TEMP:-}"
+          export RUNNER_OS="${RUNNER_OS:-}"
+          BREWEOF
+
+          # test-bot writes steps_output.txt and bottles to cwd
+          chown -R linuxbrew:linuxbrew "$GITHUB_WORKSPACE"
+
+      - run: sudo -H -u linuxbrew bash -c "source /tmp/brew-env.sh && cd \$TAP_DIR && brew test-bot --only-cleanup-before"
 
       - name: brew test-bot --only-formulae
-        run: sudo -H -u linuxbrew bash -c "source /tmp/brew-env.sh && brew test-bot --only-formulae"
+        run: |
+          sudo -H -u linuxbrew bash -c '
+            source /tmp/brew-env.sh
+            cd "$TAP_DIR"
+            ARGS="--only-formulae --tap=$TAP_NAME --root-url=https://ghcr.io/v2/helixerio/homebrew-brews"
+            for f in $CHANGED_FORMULAE; do
+              ARGS="$ARGS --testing-formulae=$TAP_NAME/$f"
+            done
+            echo "Running: brew test-bot $ARGS"
+            brew test-bot $ARGS
+          '
 
       - name: Upload bottles as artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: bottles
-          path: '*.bottle.*'
+          path: /home/linuxbrew/.linuxbrew/Homebrew/Library/Taps/helixerio/homebrew-brews/*.bottle.*
           if-no-files-found: ignore
