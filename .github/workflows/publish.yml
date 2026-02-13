@@ -10,19 +10,8 @@ jobs:
     if: contains(github.event.pull_request.labels.*.name, 'publish')
     runs-on: services-k8s-amd64
     container:
-      image: registry.services.helixer.io/docker-io/library/ubuntu:22.04
+      image: registry.services.helixer.io/ghcr-io/homebrew/ubuntu22.04:latest
     steps:
-      - name: Install dependencies
-        run: |
-          apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential curl file git procps sudo
-
-      - name: Install Homebrew
-        run: |
-          useradd -m -s /bin/bash linuxbrew
-          echo 'linuxbrew ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
-          sudo -u linuxbrew NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
       - name: Setup git
         env:
           TOKEN: ${{ secrets.GH_TOKEN_HOMEBREW }}

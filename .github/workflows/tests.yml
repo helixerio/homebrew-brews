@@ -1,80 +1,67 @@
-name: brew test
+name: brew test-bot
 
 on:
   pull_request:
-    paths:
-      - 'Formula/**'
 
 jobs:
-  detect:
+  test-bot:
     runs-on: services-k8s-amd64
     container:
-      image: registry.services.helixer.io/docker-io/library/ubuntu:22.04
-    outputs:
-      formulae: ${{ steps.detect.outputs.formulae }}
+      image: registry.services.helixer.io/ghcr-io/homebrew/ubuntu22.04:latest
     steps:
-      - name: Detect changed formulae
-        id: detect
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          apt-get update && apt-get install -y curl jq
-          CHANGED=$(curl -s -H "Authorization: token $GH_TOKEN" \
-            "https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files?per_page=100" \
-            | jq -r '.[].filename // empty' 2>/dev/null \
-            | grep '^Formula/.*\.rb$' \
-            | sed 's|Formula/||;s|\.rb$||' \
-            | tr '\n' ' ')
-          echo "formulae=$CHANGED" >> "$GITHUB_OUTPUT"
-          echo "Changed formulae: $CHANGED"
-
-  test:
-    needs: detect
-    if: needs.detect.outputs.formulae != ''
-    runs-on: services-k8s-amd64
-    container:
-      image: registry.services.helixer.io/docker-io/library/ubuntu:22.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: |
-          apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential curl file git procps sudo
-
-      - name: Install Homebrew
-        run: |
-          useradd -m -s /bin/bash linuxbrew
-          echo 'linuxbrew ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
-          sudo -u linuxbrew NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-      - name: Build and test formulae
+      - name: Setup tap
         env:
           HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GH_TOKEN_HOMEBREW }}
-          HOMEBREW_NO_AUTO_UPDATE: 1
-          FORMULAE: ${{ needs.detect.outputs.formulae }}
         run: |
-          TAP_DIR=/home/linuxbrew/.linuxbrew/Homebrew/Library/Taps/helixerio/homebrew-brews
-          mkdir -p "$(dirname "$TAP_DIR")"
-          cp -r "$GITHUB_WORKSPACE" "$TAP_DIR"
-          chown -R linuxbrew:linuxbrew "$TAP_DIR"
+          # K8s hook-extension forces root — Homebrew refuses root, so
+          # use the pre-existing linuxbrew user from the Homebrew image.
+          HOMEBREW=/home/linuxbrew/.linuxbrew/Homebrew
+          REPO="${{ github.repository }}"
+          TAP_DIR="$HOMEBREW/Library/Taps/$(echo "$REPO" | tr '[:upper:]' '[:lower:]')"
 
-          # Write env file for linuxbrew user so all brew commands get the right vars
+          # Git credentials for private repo access
+          sudo -u linuxbrew git config --global credential.helper store
+          sudo -u linuxbrew bash -c "echo 'https://x-access-token:${HOMEBREW_GITHUB_API_TOKEN}@github.com' > /home/linuxbrew/.git-credentials"
+
+          # Clone the tap with main and PR branches so test-bot can diff
+          sudo -u linuxbrew mkdir -p "$TAP_DIR"
+          sudo -u linuxbrew git -C "$TAP_DIR" init
+          sudo -u linuxbrew git -C "$TAP_DIR" remote add origin "https://github.com/$REPO"
+          sudo -u linuxbrew git -C "$TAP_DIR" fetch origin '+refs/heads/*:refs/remotes/origin/*'
+          sudo -u linuxbrew git -C "$TAP_DIR" remote set-head origin --auto
+          sudo -u linuxbrew git -C "$TAP_DIR" checkout --force -B '${{ github.event.pull_request.head.ref }}' 'origin/${{ github.event.pull_request.head.ref }}'
+
+          # Write env file so each step can source it with sudo
           cat > /tmp/brew-env.sh << 'BREWEOF'
           export PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
           BREWEOF
-          echo "export HOMEBREW_GITHUB_API_TOKEN='$HOMEBREW_GITHUB_API_TOKEN'" >> /tmp/brew-env.sh
-          echo "export HOMEBREW_NO_AUTO_UPDATE=1" >> /tmp/brew-env.sh
+          {
+            echo "export HOMEBREW_GITHUB_API_TOKEN=\"$HOMEBREW_GITHUB_API_TOKEN\""
+            echo "export HOMEBREW_NO_AUTO_UPDATE=1"
+            echo "export GITHUB_ACTIONS=\"${GITHUB_ACTIONS:-}\""
+            echo "export GITHUB_BASE_REF=\"${GITHUB_BASE_REF:-}\""
+            echo "export GITHUB_EVENT_NAME=\"${GITHUB_EVENT_NAME:-}\""
+            echo "export GITHUB_EVENT_PATH=\"${GITHUB_EVENT_PATH:-}\""
+            echo "export GITHUB_OUTPUT=\"${GITHUB_OUTPUT:-}\""
+            echo "export GITHUB_REF=\"${GITHUB_REF:-}\""
+            echo "export GITHUB_REPOSITORY=\"${GITHUB_REPOSITORY:-}\""
+            echo "export GITHUB_SHA=\"${GITHUB_SHA:-}\""
+            echo "export GITHUB_STEP_SUMMARY=\"${GITHUB_STEP_SUMMARY:-}\""
+            echo "export GITHUB_WORKSPACE=\"${GITHUB_WORKSPACE:-}\""
+            echo "export RUNNER_TEMP=\"${RUNNER_TEMP:-}\""
+            echo "export RUNNER_OS=\"${RUNNER_OS:-}\""
+          } >> /tmp/brew-env.sh
 
-          echo "Testing formulae: $FORMULAE"
-          for formula in $FORMULAE; do
-            echo "==> Installing $formula from source..."
-            sudo -H -u linuxbrew bash -c "source /tmp/brew-env.sh && brew install --verbose --build-from-source 'helixerio/brews/$formula'"
+      - run: sudo -H -u linuxbrew bash -c "source /tmp/brew-env.sh && brew test-bot --only-cleanup-before"
+      - run: sudo -H -u linuxbrew bash -c "source /tmp/brew-env.sh && brew test-bot --only-tap-syntax"
 
-            echo "==> Testing $formula..."
-            sudo -H -u linuxbrew bash -c "source /tmp/brew-env.sh && brew test 'helixerio/brews/$formula'"
+      - name: brew test-bot --only-formulae
+        run: sudo -H -u linuxbrew bash -c "source /tmp/brew-env.sh && brew test-bot --only-formulae"
 
-            echo "==> Auditing $formula..."
-            sudo -H -u linuxbrew bash -c "source /tmp/brew-env.sh && brew audit --new 'helixerio/brews/$formula'" || true
-          done
+      - name: Upload bottles as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bottles
+          path: '*.bottle.*'
+          if-no-files-found: ignore
