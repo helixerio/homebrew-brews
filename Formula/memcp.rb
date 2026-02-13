@@ -7,8 +7,17 @@ class Memcp < Formula
   license "MIT"
 
   depends_on "go" => :build
+  depends_on "node" => :build
 
   def install
+    # Build the SvelteKit web dashboard
+    system "npm", "install", "--prefix", "ui"
+    system "npm", "run", "build", "--prefix", "ui"
+    rm_rf "internal/dashboard/static"
+    mkdir_p "internal/dashboard/static"
+    cp_r Dir["ui/build/*"], "internal/dashboard/static/"
+
+    # Build the Go binary (embeds static/ via go:embed)
     ldflags = "-s -w -X github.com/helixerio/memcp/cmd.currentVersion=#{version}"
     system "go", "build", *std_go_args(ldflags:)
   end
