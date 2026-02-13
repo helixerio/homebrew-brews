@@ -31,10 +31,31 @@ jobs:
           sudo -u linuxbrew git -C "$TAP_DIR" remote set-head origin --auto
           sudo -u linuxbrew git -C "$TAP_DIR" checkout --force -B '${{ github.event.pull_request.head.ref }}' 'origin/${{ github.event.pull_request.head.ref }}'
 
+          # Detect changed formulae from the PR
+          CHANGED=$(curl -sf \
+            -H "Authorization: token ${{ github.token }}" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
+            | python3 -c "
+          import json, sys
+          files = json.load(sys.stdin)
+          formulae = []
+          for f in files:
+              name = f['filename']
+              if name.startswith('Formula/') and name.endswith('.rb'):
+                  formulae.append(name.split('/')[-1].replace('.rb', ''))
+          print(' '.join(formulae))
+          ")
+          echo "Detected changed formulae: $CHANGED"
+
+          # Derive the tap name (e.g. helixerio/brews)
+          TAP_NAME="$(echo "$REPO" | sed 's|/homebrew-|/|')"
+
           # Write env file so each step can source it with sudo
           cat > /tmp/brew-env.sh << BREWEOF
           export PATH="/home/linuxbrew/.linuxbrew/bin:\$PATH"
           export TAP_DIR="$TAP_DIR"
+          export TAP_NAME="$TAP_NAME"
+          export CHANGED_FORMULAE="$CHANGED"
           export HOMEBREW_GITHUB_API_TOKEN="$HOMEBREW_GITHUB_API_TOKEN"
           export HOMEBREW_NO_AUTO_UPDATE=1
           export GITHUB_ACTIONS="${GITHUB_ACTIONS:-}"
@@ -54,12 +75,20 @@ jobs:
           # test-bot writes steps_output.txt and bottles to cwd
           chown -R linuxbrew:linuxbrew "$GITHUB_WORKSPACE"
 
-      # test-bot detects the tap from cwd, so cd into the tap directory.
-      # Skip --only-tap-syntax: it always audits homebrew/core, not third-party taps.
       - run: sudo -H -u linuxbrew bash -c "source /tmp/brew-env.sh && cd \$TAP_DIR && brew test-bot --only-cleanup-before"
 
       - name: brew test-bot --only-formulae
-        run: sudo -H -u linuxbrew bash -c "source /tmp/brew-env.sh && cd \$TAP_DIR && brew test-bot --only-formulae --root-url='https://ghcr.io/v2/helixerio/homebrew-brews'"
+        run: |
+          sudo -H -u linuxbrew bash -c '
+            source /tmp/brew-env.sh
+            cd "$TAP_DIR"
+            ARGS="--only-formulae --tap=$TAP_NAME --root-url=https://ghcr.io/v2/helixerio/homebrew-brews"
+            for f in $CHANGED_FORMULAE; do
+              ARGS="$ARGS --testing-formulae=$TAP_NAME/$f"
+            done
+            echo "Running: brew test-bot $ARGS"
+            brew test-bot $ARGS
+          '
 
       - name: Upload bottles as artifact
         if: always()
