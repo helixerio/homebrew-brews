@@ -31,18 +31,13 @@ jobs:
           sudo -u linuxbrew git -C "$TAP_DIR" remote set-head origin --auto
           sudo -u linuxbrew git -C "$TAP_DIR" checkout --force -B '${{ github.event.pull_request.head.ref }}' 'origin/${{ github.event.pull_request.head.ref }}'
 
-          # Detect changed formulae from the PR
+          # Detect changed formulae from the PR (using grep/sed — ruby/python not in root's PATH)
           CHANGED=$(curl -sf \
             -H "Authorization: token ${{ github.token }}" \
             "https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
-            | ruby -rjson -e '
-              files = JSON.parse(STDIN.read)
-              formulae = files
-                .map { |f| f["filename"] }
-                .select { |n| n.start_with?("Formula/") && n.end_with?(".rb") }
-                .map { |n| File.basename(n, ".rb") }
-              puts formulae.join(" ")
-            ')
+            | grep -o '"filename":"Formula/[^"]*\.rb"' \
+            | sed 's|"filename":"Formula/||;s|\.rb"||' \
+            | tr '\n' ' ')
           echo "Detected changed formulae: $CHANGED"
 
           # Derive the tap name (e.g. helixerio/brews)
