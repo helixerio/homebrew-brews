@@ -1,49 +1,80 @@
-name: brew test-bot
+name: brew test
 
 on:
   pull_request:
+    paths:
+      - 'Formula/**'
 
 jobs:
-  test-bot:
-    runs-on: [ self-hosted, "${{ matrix.arch }}" ]
+  detect:
+    runs-on: services-k8s-amd64
     container:
-      image: registry.services.helixer.dev/helixer/ubuntu-dind:latest
-      options: --privileged
-    strategy:
-      matrix:
-        arch: [ amd64, arm64 ]
+      image: registry.services.helixer.io/docker-io/library/ubuntu:22.04
+    outputs:
+      formulae: ${{ steps.detect.outputs.formulae }}
     steps:
-      - name: Setup Git Environment
-        run: git config --global init.defaultBranch main
-
-      - name: Setup Homebrew
-        id: setup-homebrew
-        uses: Homebrew/actions/setup-homebrew@master
-        with:
-          token: ${{ secrets.PRIVATE_TOKEN }}
-
-      - name: Cache Homebrew Bundler RubyGems
-        id: cache
-        uses: actions/cache@v1
-        with:
-          path: ${{ steps.setup-homebrew.outputs.gems-path }}
-          key: ${{ runner.os }}-rubygems-${{ steps.setup-homebrew.outputs.gems-hash }}
-          restore-keys: ${{ runner.os }}-rubygems-
-
-      - name: Install Homebrew Bundler RubyGems
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: brew install-bundler-gems
-
-      - run: brew test-bot --only-cleanup-before
-      - run: brew test-bot --only-tap-syntax
-      - run: mkdir -p /home/linuxbrew/.linuxbrew/Cellar/gnu-tar/1.35/.brew
-
-      - run: brew test-bot --only-formulae
+      - name: Detect changed formulae
+        id: detect
         env:
-          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.PRIVATE_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          apt-get update && apt-get install -y curl jq
+          CHANGED=$(curl -s -H "Authorization: token $GH_TOKEN" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files?per_page=100" \
+            | jq -r '.[].filename // empty' 2>/dev/null \
+            | grep '^Formula/.*\.rb$' \
+            | sed 's|Formula/||;s|\.rb$||' \
+            | tr '\n' ' ')
+          echo "formulae=$CHANGED" >> "$GITHUB_OUTPUT"
+          echo "Changed formulae: $CHANGED"
 
-      - name: Upload bottles as artifact
-        uses: actions/upload-artifact@main
-        with:
-          name: bottles
-          path: '*.bottle.*'
+  test:
+    needs: detect
+    if: needs.detect.outputs.formulae != ''
+    runs-on: services-k8s-amd64
+    container:
+      image: registry.services.helixer.io/docker-io/library/ubuntu:22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential curl file git procps sudo
+
+      - name: Install Homebrew
+        run: |
+          useradd -m -s /bin/bash linuxbrew
+          echo 'linuxbrew ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+          sudo -u linuxbrew NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+      - name: Build and test formulae
+        env:
+          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GH_TOKEN_HOMEBREW }}
+          HOMEBREW_NO_AUTO_UPDATE: 1
+          FORMULAE: ${{ needs.detect.outputs.formulae }}
+        run: |
+          TAP_DIR=/home/linuxbrew/.linuxbrew/Homebrew/Library/Taps/helixerio/homebrew-brews
+          mkdir -p "$(dirname "$TAP_DIR")"
+          cp -r "$GITHUB_WORKSPACE" "$TAP_DIR"
+          chown -R linuxbrew:linuxbrew "$TAP_DIR"
+
+          # Write env file for linuxbrew user so all brew commands get the right vars
+          cat > /tmp/brew-env.sh << 'BREWEOF'
+          export PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
+          BREWEOF
+          echo "export HOMEBREW_GITHUB_API_TOKEN='$HOMEBREW_GITHUB_API_TOKEN'" >> /tmp/brew-env.sh
+          echo "export HOMEBREW_NO_AUTO_UPDATE=1" >> /tmp/brew-env.sh
+
+          echo "Testing formulae: $FORMULAE"
+          for formula in $FORMULAE; do
+            echo "==> Installing $formula from source..."
+            sudo -H -u linuxbrew bash -c "source /tmp/brew-env.sh && brew install --verbose --build-from-source 'helixerio/brews/$formula'"
+
+            echo "==> Testing $formula..."
+            sudo -H -u linuxbrew bash -c "source /tmp/brew-env.sh && brew test 'helixerio/brews/$formula'"
+
+            echo "==> Auditing $formula..."
+            sudo -H -u linuxbrew bash -c "source /tmp/brew-env.sh && brew audit --new 'helixerio/brews/$formula'" || true
+          done
