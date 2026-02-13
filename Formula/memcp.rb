@@ -2,7 +2,7 @@ class Memcp < Formula
   desc "Cross-session persistent memory MCP server for coding agents"
   homepage "https://github.com/helixerio/memcp"
   url "https://github.com/helixerio/memcp/archive/refs/tags/v0.2.0.tar.gz",
-    header: "Authorization: token #{ENV["HOMEBREW_GITHUB_API_TOKEN"] || `gh auth token 2>/dev/null`.chomp}"
+    header: "Authorization: token #{ENV["HOMEBREW_GITHUB_API_TOKEN"] || `#{HOMEBREW_PREFIX}/bin/gh auth token 2>/dev/null`.chomp}"
   sha256 "33887f52d1ccfaab49a220e19ab231b66a692d3bb058de20a9a5ef97db3cabc4"
   license "MIT"
 
