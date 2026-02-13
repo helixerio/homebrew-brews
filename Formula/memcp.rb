@@ -11,9 +11,9 @@ class Memcp < Formula
 
   def install
     # Build the SvelteKit web dashboard
-    system "npm", "install", "--prefix", "ui"
+    system "npm", "install", "--prefix", "ui", *std_npm_args(prefix: false, ignore_scripts: false)
     system "npm", "run", "build", "--prefix", "ui"
-    rm_rf "internal/dashboard/static"
+    rm_r "internal/dashboard/static"
     mkdir_p "internal/dashboard/static"
     cp_r Dir["ui/build/*"], "internal/dashboard/static/"
 
