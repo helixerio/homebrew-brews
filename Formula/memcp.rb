@@ -1,0 +1,44 @@
+class Memcp < Formula
+  desc "Cross-session persistent memory MCP server for coding agents"
+  homepage "https://github.com/helixerio/memcp"
+  url "https://github.com/helixerio/memcp/archive/refs/tags/v0.1.0.tar.gz",
+    header: "Authorization: token #{ENV["HOMEBREW_GITHUB_API_TOKEN"]}"
+  sha256 "9fb1a5eda1f13030bb2ecceb27e0b188096d014b1ce3a1ec2e24092e0b77e639"
+
+  depends_on "go" => :build
+
+  def install
+    ldflags = "-s -w -X github.com/helixerio/memcp/cmd.currentVersion=#{version}"
+    system "go", "build", *std_go_args(ldflags:)
+  end
+
+  service do
+    run [opt_bin/"memcp", "serve"]
+    keep_alive true
+    log_path var/"log/memcp.log"
+    error_log_path var/"log/memcp.log"
+    environment_variables PATH: std_service_path_env
+  end
+
+  def caveats
+    <<~EOS
+      To run memcp as a background service:
+
+        brew services start memcp
+
+      This starts `memcp serve` on http://127.0.0.1:19522 with:
+        - MCP endpoint at /mcp (for Claude Desktop, OpenCode, etc.)
+        - Web dashboard at /
+        - REST API at /api/*
+
+      Data is stored at ~/.local/share/memcp/memories.db
+
+      To configure MCP clients, use the HTTP transport URL:
+        http://127.0.0.1:19522/mcp
+    EOS
+  end
+
+  test do
+    assert_match "memcp version: #{version}", shell_output("#{bin}/memcp version")
+  end
+end
