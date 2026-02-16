@@ -35,14 +35,35 @@ jobs:
           HOMEBREW_NO_AUTO_UPDATE: 1
         run: |
           TAP_DIR=/home/linuxbrew/.linuxbrew/Homebrew/Library/Taps/helixerio/homebrew-brews
-          cd "$TAP_DIR"
+
+          # Ensure GITHUB_OUTPUT is writable by linuxbrew
+          chmod 666 "$GITHUB_OUTPUT"
 
           sudo -H -u linuxbrew bash -c "
             export PATH=/home/linuxbrew/.linuxbrew/bin:\$PATH
             export HOMEBREW_GITHUB_API_TOKEN=$HOMEBREW_GITHUB_API_TOKEN
             export HOMEBREW_NO_AUTO_UPDATE=1
+            export GITHUB_ACTIONS=$GITHUB_ACTIONS
+            export GITHUB_OUTPUT=$GITHUB_OUTPUT
             cd $TAP_DIR
-            brew pr-pull --debug --tap=${{ github.repository }} --workflows=bottle.yml ${{ github.event.pull_request.number }}
+            brew pr-pull --debug --no-upload --retain-bottle-dir --tap=${{ github.repository }} --workflows=bottle.yml ${{ github.event.pull_request.number }}
+          "
+
+          # Export bottle_path for subsequent steps
+          BOTTLE_DIR=$(grep '^bottle_path=' "$GITHUB_OUTPUT" | tail -1 | cut -d= -f2-)
+          echo "BOTTLE_DIR=$BOTTLE_DIR" >> "$GITHUB_ENV"
+
+      - name: Create bottle commit
+        env:
+          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GH_TOKEN_HOMEBREW }}
+          HOMEBREW_NO_AUTO_UPDATE: 1
+        run: |
+          sudo -H -u linuxbrew bash -c "
+            export PATH=/home/linuxbrew/.linuxbrew/bin:\$PATH
+            export HOMEBREW_GITHUB_API_TOKEN=$HOMEBREW_GITHUB_API_TOKEN
+            export HOMEBREW_NO_AUTO_UPDATE=1
+            cd $BOTTLE_DIR
+            brew bottle --merge --write *.bottle.json
           "
 
       - name: Push commits
@@ -50,6 +71,19 @@ jobs:
           TAP_DIR=/home/linuxbrew/.linuxbrew/Homebrew/Library/Taps/helixerio/homebrew-brews
           cd "$TAP_DIR"
           sudo -u linuxbrew git push origin main
+
+      - name: Upload bottles
+        env:
+          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GH_TOKEN_HOMEBREW }}
+          HOMEBREW_NO_AUTO_UPDATE: 1
+        run: |
+          sudo -H -u linuxbrew bash -c "
+            export PATH=/home/linuxbrew/.linuxbrew/bin:\$PATH
+            export HOMEBREW_GITHUB_API_TOKEN=$HOMEBREW_GITHUB_API_TOKEN
+            export HOMEBREW_NO_AUTO_UPDATE=1
+            cd $BOTTLE_DIR
+            brew pr-upload --debug --upload-only
+          "
 
       - name: Delete branch
         if: github.event.pull_request.head.repo.fork == false
