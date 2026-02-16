@@ -2,9 +2,8 @@ class Memcp < Formula
   desc "Cross-session persistent memory MCP server for coding agents"
   homepage "https://github.com/helixerio/memcp"
   url "https://github.com/helixerio/memcp/archive/refs/tags/v0.6.0.tar.gz",
-    header: "Authorization: token #{ENV["HOMEBREW_GITHUB_API_TOKEN"] || `#{HOMEBREW_PREFIX}/bin/gh auth token 2>/dev/null`.chomp}"
+    header: "Authorization: token #{ENV["HOMEBREW_GITHUB_API_TOKEN"]}"
   sha256 "b8a99d165761001d48e488bd091972de524ca3fac9455a5cd763984fdb353df7"
-  license "MIT"
 
   depends_on "go" => :build
   depends_on "node" => :build
@@ -18,7 +17,9 @@ class Memcp < Formula
     cp_r Dir["ui/build/*"], "internal/dashboard/static/"
 
     # Build the Go binary (embeds static/ via go:embed)
-    ldflags = "-s -w -X github.com/helixerio/memcp/cmd.currentVersion=v#{version}"
+    ENV["CGO_ENABLED"] = "1"
+    ENV["GOTOOLCHAIN"] = "auto"
+    ldflags = "-s -w -X github.com/helixerio/memcp/cmd.currentVersion=#{version}"
     system "go", "build", *std_go_args(ldflags:)
   end
 
