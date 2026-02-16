@@ -107,3 +107,4 @@ override.tf.json
 terraform.rc
 
 # Custom files or directories to ignore
+.opencode
