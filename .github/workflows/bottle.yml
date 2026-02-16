@@ -1,0 +1,199 @@
+name: brew bottle
+
+on:
+  pull_request:
+
+jobs:
+  bottle:
+    name: bottle (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-amd64
+            container: registry.services.helixer.io/ghcr-io/homebrew/ubuntu22.04:latest
+            runner: services-k8s-amd64
+          - name: linux-arm64
+            container: registry.services.helixer.io/ghcr-io/homebrew/ubuntu22.04:latest
+            runner: services-k8s-arm64
+          - name: macos-arm64
+            container: ""
+            runner: macos-latest
+    runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container || null }}
+    steps:
+      - name: Setup tap (Linux)
+        if: runner.os == 'Linux'
+        env:
+          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GH_TOKEN_HOMEBREW }}
+        run: |
+          # K8s hook-extension forces root — Homebrew refuses root, so
+          # use the pre-existing linuxbrew user from the Homebrew image.
+          HOMEBREW=/home/linuxbrew/.linuxbrew/Homebrew
+          REPO="${{ github.repository }}"
+          TAP_DIR="$HOMEBREW/Library/Taps/$(echo "$REPO" | tr '[:upper:]' '[:lower:]')"
+
+          # Git credentials for private repo access
+          sudo -u linuxbrew git config --global credential.helper store
+          sudo -u linuxbrew bash -c "echo 'https://x-access-token:${HOMEBREW_GITHUB_API_TOKEN}@github.com' > /home/linuxbrew/.git-credentials"
+
+          # Clone the tap with main and PR branches so test-bot can diff
+          sudo -u linuxbrew mkdir -p "$TAP_DIR"
+          sudo -u linuxbrew git -C "$TAP_DIR" init
+          sudo -u linuxbrew git -C "$TAP_DIR" remote add origin "https://github.com/$REPO"
+          sudo -u linuxbrew git -C "$TAP_DIR" fetch origin '+refs/heads/*:refs/remotes/origin/*'
+          sudo -u linuxbrew git -C "$TAP_DIR" remote set-head origin --auto
+          sudo -u linuxbrew git -C "$TAP_DIR" checkout --force -B '${{ github.event.pull_request.head.ref }}' 'origin/${{ github.event.pull_request.head.ref }}'
+
+          # Detect changed formulae from the PR
+          CHANGED=$(curl -sf \
+            -H "Authorization: token ${{ github.token }}" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
+            | grep -oE '"filename" *: *"Formula/[^"]*\.rb"' \
+            | sed 's|.*"Formula/||;s|\.rb"||' \
+            | tr '\n' ' ')
+          echo "Detected changed formulae: $CHANGED"
+
+          TAP_NAME="$(echo "$REPO" | sed 's|/homebrew-|/|')"
+
+          # Write env file so each step can source it with sudo
+          cat > /tmp/brew-env.sh << BREWEOF
+          export PATH="/home/linuxbrew/.linuxbrew/bin:\$PATH"
+          export TAP_DIR="$TAP_DIR"
+          export TAP_NAME="$TAP_NAME"
+          export CHANGED_FORMULAE="$CHANGED"
+          export HOMEBREW_GITHUB_API_TOKEN="$HOMEBREW_GITHUB_API_TOKEN"
+          export HOMEBREW_NO_AUTO_UPDATE=1
+          export GITHUB_ACTIONS="${GITHUB_ACTIONS:-}"
+          export GITHUB_BASE_REF="${GITHUB_BASE_REF:-}"
+          export GITHUB_EVENT_NAME="${GITHUB_EVENT_NAME:-}"
+          export GITHUB_EVENT_PATH="${GITHUB_EVENT_PATH:-}"
+          export GITHUB_OUTPUT="${GITHUB_OUTPUT:-}"
+          export GITHUB_REF="${GITHUB_REF:-}"
+          export GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-}"
+          export GITHUB_SHA="${GITHUB_SHA:-}"
+          export GITHUB_STEP_SUMMARY="${GITHUB_STEP_SUMMARY:-}"
+          export GITHUB_WORKSPACE="${GITHUB_WORKSPACE:-}"
+          export RUNNER_TEMP="${RUNNER_TEMP:-}"
+          export RUNNER_OS="${RUNNER_OS:-}"
+          BREWEOF
+
+          # test-bot writes steps_output.txt and bottles to cwd
+          chown -R linuxbrew:linuxbrew "$GITHUB_WORKSPACE"
+
+      - name: Setup tap (macOS)
+        if: runner.os == 'macOS'
+        env:
+          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GH_TOKEN_HOMEBREW }}
+        run: |
+          REPO="${{ github.repository }}"
+          TAP_NAME="$(echo "$REPO" | sed 's|/homebrew-|/|')"
+
+          # Setup credentials and tap
+          echo "https://x-access-token:${HOMEBREW_GITHUB_API_TOKEN}@github.com" > ~/.git-credentials
+          git config --global credential.helper store
+          brew tap "$TAP_NAME" "https://github.com/$REPO"
+
+          # Checkout the PR branch in the tap
+          TAP_DIR="$(brew --repository "$TAP_NAME")"
+          git -C "$TAP_DIR" fetch origin '+refs/heads/*:refs/remotes/origin/*'
+          git -C "$TAP_DIR" remote set-head origin --auto
+          git -C "$TAP_DIR" checkout --force -B '${{ github.event.pull_request.head.ref }}' 'origin/${{ github.event.pull_request.head.ref }}'
+
+          # Detect changed formulae from the PR
+          CHANGED=$(curl -sf \
+            -H "Authorization: token ${{ github.token }}" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
+            | grep -oE '"filename" *: *"Formula/[^"]*\.rb"' \
+            | sed 's|.*"Formula/||;s|\.rb"||' \
+            | tr '\n' ' ')
+          echo "Detected changed formulae: $CHANGED"
+
+          # Export TAP_DIR for upload-artifact (which can't source shell files)
+          echo "TAP_DIR=$TAP_DIR" >> "$GITHUB_ENV"
+
+          # Write env file for subsequent steps
+          cat > /tmp/brew-env.sh << BREWEOF
+          export TAP_DIR="$TAP_DIR"
+          export TAP_NAME="$TAP_NAME"
+          export CHANGED_FORMULAE="$CHANGED"
+          export HOMEBREW_GITHUB_API_TOKEN="$HOMEBREW_GITHUB_API_TOKEN"
+          export HOMEBREW_NO_AUTO_UPDATE=1
+          BREWEOF
+
+      - name: brew test-bot --only-cleanup-before (Linux)
+        if: runner.os == 'Linux'
+        run: sudo -H -u linuxbrew bash -c "source /tmp/brew-env.sh && cd \$TAP_DIR && brew test-bot --only-cleanup-before"
+
+      - name: brew test-bot --only-cleanup-before (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          source /tmp/brew-env.sh
+          cd "$TAP_DIR"
+          brew test-bot --only-cleanup-before
+
+      - name: brew test-bot --only-formulae (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo -H -u linuxbrew bash -c '
+            source /tmp/brew-env.sh
+            cd "$TAP_DIR"
+            ARGS="--only-formulae --tap=$TAP_NAME --root-url=https://github.com/${{ github.repository }}/releases/download/\$TAG"
+            for f in $CHANGED_FORMULAE; do
+              ARGS="$ARGS --testing-formulae=$TAP_NAME/$f"
+            done
+            echo "Running: brew test-bot $ARGS"
+            brew test-bot $ARGS
+          '
+
+      - name: brew test-bot --only-formulae (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          source /tmp/brew-env.sh
+          cd "$TAP_DIR"
+          ARGS="--only-formulae --tap=$TAP_NAME --root-url=https://github.com/${{ github.repository }}/releases/download/\$TAG"
+          for f in $CHANGED_FORMULAE; do
+            ARGS="$ARGS --testing-formulae=$TAP_NAME/$f"
+          done
+          echo "Running: brew test-bot $ARGS"
+          brew test-bot $ARGS
+
+      - name: Upload bottles as artifact (Linux)
+        if: always() && runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bottles_${{ matrix.name }}
+          path: /home/linuxbrew/.linuxbrew/Homebrew/Library/Taps/helixerio/homebrew-brews/*.bottle.*
+          if-no-files-found: ignore
+
+      - name: Upload bottles as artifact (macOS)
+        if: always() && runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bottles_${{ matrix.name }}
+          path: ${{ env.TAP_DIR }}/*.bottle.*
+          if-no-files-found: ignore
+
+      - name: Check test-bot result (Linux)
+        if: always() && runner.os == 'Linux'
+        run: |
+          sudo -H -u linuxbrew bash -c '
+            source /tmp/brew-env.sh
+            cd "$TAP_DIR"
+            if grep -q "failed" steps_output.txt 2>/dev/null; then
+              echo "::error::brew test-bot reported failures:"
+              cat steps_output.txt
+              exit 1
+            fi
+          '
+
+      - name: Check test-bot result (macOS)
+        if: always() && runner.os == 'macOS'
+        run: |
+          source /tmp/brew-env.sh
+          cd "$TAP_DIR"
+          if grep -q "failed" steps_output.txt 2>/dev/null; then
+            echo "::error::brew test-bot reported failures:"
+            cat steps_output.txt
+            exit 1
+          fi
