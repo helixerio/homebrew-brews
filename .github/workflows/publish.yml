@@ -21,27 +21,38 @@ jobs:
           sudo -u linuxbrew git config --global user.name "BrewTestBot"
           sudo -u linuxbrew git config --global user.email "homebrew-test-bot@lists.sfconservancy.org"
 
-      - name: Checkout and merge PR
+      - name: Setup tap
         env:
           TOKEN: ${{ secrets.GH_TOKEN_HOMEBREW }}
         run: |
           TAP_DIR=/home/linuxbrew/.linuxbrew/Homebrew/Library/Taps/helixerio/homebrew-brews
-          mkdir -p "$(dirname "$TAP_DIR")"
-
+          sudo -u linuxbrew mkdir -p "$(dirname "$TAP_DIR")"
           sudo -u linuxbrew git clone "https://x-access-token:${TOKEN}@github.com/${{ github.repository }}" "$TAP_DIR"
+
+      - name: Pull bottles
+        env:
+          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GH_TOKEN_HOMEBREW }}
+          HOMEBREW_NO_AUTO_UPDATE: 1
+        run: |
+          TAP_DIR=/home/linuxbrew/.linuxbrew/Homebrew/Library/Taps/helixerio/homebrew-brews
           cd "$TAP_DIR"
-          sudo -u linuxbrew git checkout main
 
-          # Merge the PR branch
-          sudo -u linuxbrew git merge "origin/${{ github.event.pull_request.head.ref }}" --no-edit
+          sudo -H -u linuxbrew bash -c "
+            export PATH=/home/linuxbrew/.linuxbrew/bin:\$PATH
+            export HOMEBREW_GITHUB_API_TOKEN=$HOMEBREW_GITHUB_API_TOKEN
+            export HOMEBREW_NO_AUTO_UPDATE=1
+            cd $TAP_DIR
+            brew pr-pull --debug --tap=${{ github.repository }} --workflows=bottle.yml ${{ github.event.pull_request.number }}
+          "
 
-          # Push to main
+      - name: Push commits
+        run: |
+          TAP_DIR=/home/linuxbrew/.linuxbrew/Homebrew/Library/Taps/helixerio/homebrew-brews
+          cd "$TAP_DIR"
           sudo -u linuxbrew git push origin main
 
       - name: Delete branch
         if: github.event.pull_request.head.repo.fork == false
-        env:
-          TOKEN: ${{ secrets.GH_TOKEN_HOMEBREW }}
         run: |
           TAP_DIR=/home/linuxbrew/.linuxbrew/Homebrew/Library/Taps/helixerio/homebrew-brews
           cd "$TAP_DIR"
