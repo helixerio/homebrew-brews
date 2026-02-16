@@ -7,9 +7,10 @@ class Depot < Formula
 
   bottle do
     root_url "https://github.com/helixerio/homebrew-brews/releases/download/depot-0.5.0"
-    sha256 cellar: :any_skip_relocation, arm64_sequoia: "51f0138e9411ecb379db5ed103745ca35062731c5dec2d83f9a0290e8c7bf8f8"
-    sha256 cellar: :any_skip_relocation, arm64_linux:   "f232b9da754a0f88560238f80736f466d0334f048f32c18a63524d52d8c245a9"
-    sha256 cellar: :any_skip_relocation, x86_64_linux:  "a79cd94e755e51e6adc5dc87c20e3b4b1f27e368893e2b7670f1304262387df2"
+    rebuild 1
+    sha256 cellar: :any_skip_relocation, arm64_sequoia: "029825e314cf68af3cb7effd1da966d1fdb021d18c9cec6635fc34350e76350a"
+    sha256 cellar: :any_skip_relocation, arm64_linux:   "3c92697dab73001da6888295230a4d2694f1e93db10ca8ca989699626e0d4222"
+    sha256 cellar: :any_skip_relocation, x86_64_linux:  "730486b63ae77fb82ff990ca1f0b43b02ccaee7145f650412b3a359c5da613a1"
   end
 
   depends_on "go" => :build
