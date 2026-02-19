@@ -3,7 +3,7 @@ class Memcp < Formula
   homepage "https://github.com/helixerio/memcp"
   url "https://github.com/helixerio/memcp/archive/refs/tags/v1.0.0.tar.gz",
     header: "Authorization: token #{ENV["HOMEBREW_GITHUB_API_TOKEN"]}"
-  sha256 "b8a99d165761001d48e488bd091972de524ca3fac9455a5cd763984fdb353df7"
+  sha256 "0019dfc4b32d63c1392aa264aed2253c1e0c2fb09216f8e2cc269bbfb8bb49b5"
 
   bottle do
     root_url "https://github.com/helixerio/homebrew-brews/releases/download/memcp-1.0.0"
