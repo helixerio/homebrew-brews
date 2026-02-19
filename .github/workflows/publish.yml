@@ -56,4 +56,4 @@ jobs:
         run: |
           TAP_DIR=/home/linuxbrew/.linuxbrew/Homebrew/Library/Taps/helixerio/homebrew-brews
           cd "$TAP_DIR"
-          sudo -u linuxbrew git push origin --delete "${{ github.event.pull_request.head.ref }}"
+          sudo -u linuxbrew git push origin --delete "refs/heads/${{ github.event.pull_request.head.ref }}"
