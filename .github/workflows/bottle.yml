@@ -2,6 +2,8 @@ name: brew bottle
 
 on:
   pull_request:
+    paths:
+      - Formula/**
 
 jobs:
   bottle:
