@@ -1,15 +1,12 @@
 class Memcp < Formula
   desc "Cross-session persistent memory MCP server for coding agents"
   homepage "https://github.com/helixerio/memcp"
-  url "https://github.com/helixerio/memcp/archive/refs/tags/v1.1.0.tar.gz",
+  url "https://github.com/helixerio/memcp/archive/refs/tags/v1.2.0.tar.gz",
     header: "Authorization: token #{ENV["HOMEBREW_GITHUB_API_TOKEN"]}"
-  sha256 "bd69fc82567f905dcc8876e94994d21bb685b56e6874457aa37d9d91489778ed"
+  sha256 "a705181acc3bddf48eb887b19ae78bea398d12893abdeb257703e289606131a2"
 
   bottle do
-    root_url "https://github.com/helixerio/homebrew-brews/releases/download/memcp-1.1.0"
-    sha256 cellar: :any_skip_relocation, arm64_sequoia: "d83856422bc17384ffb80779ec0638c2a983cdbdd28b843ab4e65de4ca6c82de"
-    sha256 cellar: :any_skip_relocation, arm64_linux:   "8326dea08362f09d342b9f56d4e634bfe8ac7f797c71fd58255d6b9fe06ab8e8"
-    sha256 cellar: :any_skip_relocation, x86_64_linux:  "04f3ea294436a6edb82da4ec58be09eaefacca2615e118c458d6dc9ef84e6e12"
+    root_url "https://github.com/helixerio/homebrew-brews/releases/download/memcp-1.2.0"
   end
 
   depends_on "go" => :build
