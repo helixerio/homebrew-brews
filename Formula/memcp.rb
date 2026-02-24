@@ -7,6 +7,9 @@ class Memcp < Formula
 
   bottle do
     root_url "https://github.com/helixerio/homebrew-brews/releases/download/memcp-1.2.1"
+    sha256 cellar: :any_skip_relocation, arm64_sequoia: "df0473cc9af552928529ac74a58f6157841a51880788d509b6901a32fcfcae06"
+    sha256 cellar: :any_skip_relocation, arm64_linux:   "d5bbba8323f1713d29d20314fe72a811beae4e87ca49063f0c988abbda050d11"
+    sha256 cellar: :any_skip_relocation, x86_64_linux:  "c4bff94ce6c3916a23bafddfaa475bc9c48d07fe635fabf9371bac279e03f351"
   end
 
   depends_on "go" => :build
