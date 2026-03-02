@@ -5,6 +5,13 @@ class Memcp < Formula
     header: "Authorization: token #{ENV["HOMEBREW_GITHUB_API_TOKEN"]}"
   sha256 "a16417f613fc4c7a652dbded2e1694ce70bcbc7de147376d9187b8caa1d47417"
 
+  bottle do
+    root_url "https://github.com/helixerio/homebrew-brews/releases/download/memcp-1.4.0"
+    sha256 cellar: :any_skip_relocation, arm64_sequoia: "1100dfda1c3b81f85cf5a6af381c6917ed6d9979f8e4c56fbd87891338c1fcee"
+    sha256 cellar: :any_skip_relocation, arm64_linux:   "c8f066f02e1a1243170d3b1d50d0613f87db1733c9e1e9746c0ee0add018eaef"
+    sha256 cellar: :any_skip_relocation, x86_64_linux:  "55688b1ab3275d71379cd66c45ff7ea1f1c0d9d3d00de221c1184baac80a415f"
+  end
+
   depends_on "go" => :build
   depends_on "node" => :build
 
