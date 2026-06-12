@@ -13,10 +13,10 @@ jobs:
       matrix:
         include:
           - name: linux-amd64
-            container: registry.services.helixer.io/ghcr-io/homebrew/ubuntu22.04:latest
+            container: registry.services.helixer.io/ghcr-io/homebrew/brew:main
             runner: services-k8s-amd64
           - name: linux-arm64
-            container: registry.services.helixer.io/ghcr-io/homebrew/ubuntu22.04:latest
+            container: registry.services.helixer.io/ghcr-io/homebrew/brew:main
             runner: services-k8s-arm64
           - name: macos-arm64
             container: ""
@@ -66,6 +66,7 @@ jobs:
           export CHANGED_FORMULAE="$CHANGED"
           export HOMEBREW_GITHUB_API_TOKEN="$HOMEBREW_GITHUB_API_TOKEN"
           export HOMEBREW_NO_AUTO_UPDATE=1
+          export HOMEBREW_NO_SANDBOX_LINUX=1
           export GITHUB_ACTIONS="${GITHUB_ACTIONS:-}"
           export GITHUB_BASE_REF="${GITHUB_BASE_REF:-}"
           export GITHUB_EVENT_NAME="${GITHUB_EVENT_NAME:-}"
