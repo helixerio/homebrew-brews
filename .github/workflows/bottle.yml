@@ -81,6 +81,8 @@ jobs:
           export RUNNER_OS="${RUNNER_OS:-}"
           BREWEOF
 
+          sudo -H -u linuxbrew bash -c "source /tmp/brew-env.sh && brew trust --tap \"\$TAP_NAME\""
+
           # test-bot writes steps_output.txt and bottles to cwd
           chown -R linuxbrew:linuxbrew "$GITHUB_WORKSPACE"
 
@@ -123,6 +125,8 @@ jobs:
           export HOMEBREW_GITHUB_API_TOKEN="$HOMEBREW_GITHUB_API_TOKEN"
           export HOMEBREW_NO_AUTO_UPDATE=1
           BREWEOF
+
+          brew trust --tap "$TAP_NAME"
 
       - name: brew test-bot --only-cleanup-before (Linux)
         if: runner.os == 'Linux'
