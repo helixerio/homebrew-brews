@@ -10,7 +10,7 @@ jobs:
     if: contains(github.event.pull_request.labels.*.name, 'publish')
     runs-on: services-k8s-amd64
     container:
-      image: registry.services.helixer.io/ghcr-io/homebrew/ubuntu22.04:latest
+      image: registry.services.helixer.io/ghcr-io/homebrew/brew:main
     steps:
       - name: Setup git
         env:
@@ -33,6 +33,7 @@ jobs:
         env:
           HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GH_TOKEN_HOMEBREW }}
           HOMEBREW_NO_AUTO_UPDATE: 1
+          HOMEBREW_NO_SANDBOX_LINUX: 1
         run: |
           TAP_DIR=/home/linuxbrew/.linuxbrew/Homebrew/Library/Taps/helixerio/homebrew-brews
           cd "$TAP_DIR"
@@ -41,7 +42,9 @@ jobs:
             export PATH=/home/linuxbrew/.linuxbrew/bin:\$PATH
             export HOMEBREW_GITHUB_API_TOKEN=$HOMEBREW_GITHUB_API_TOKEN
             export HOMEBREW_NO_AUTO_UPDATE=1
+            export HOMEBREW_NO_SANDBOX_LINUX=1
             cd $TAP_DIR
+            brew trust --tap helixerio/brews
             brew pr-pull --debug --tap=${{ github.repository }} --workflows=bottle.yml ${{ github.event.pull_request.number }}
           "
 
