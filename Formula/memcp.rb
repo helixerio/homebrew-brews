@@ -1,28 +1,41 @@
 class Memcp < Formula
   desc "Cross-session persistent memory MCP server for coding agents"
   homepage "https://github.com/helixerio/memcp"
-  url "https://github.com/helixerio/memcp/archive/refs/tags/v1.5.6.tar.gz",
-    header: "Authorization: token #{ENV["HOMEBREW_GITHUB_API_TOKEN"]}"
-  sha256 "73b3b653a01c3ed1f25befa2251d4657b920f553b247ede6dc07009bca94f897"
+  version "1.5.6"
 
-  depends_on "go" => :build
-  depends_on "node" => :build
+  on_macos do
+    on_arm do
+      url "https://api.github.com/repos/helixerio/memcp/releases/assets/456422547",
+        header: [
+          "Authorization: Bearer #{ENV["HOMEBREW_GITHUB_API_TOKEN"]}",
+          "Accept: application/octet-stream",
+        ]
+      sha256 "16623107f3070697017a844cae4f2be4b2d45c630822fd1891a58cbf54c1bb98"
+    end
+  end
+
+  on_linux do
+    on_arm do
+      url "https://api.github.com/repos/helixerio/memcp/releases/assets/456423436",
+        header: [
+          "Authorization: Bearer #{ENV["HOMEBREW_GITHUB_API_TOKEN"]}",
+          "Accept: application/octet-stream",
+        ]
+      sha256 "4e826af4e8831cd56071cc2c2ae4a7f916054b63bd47a4656c13cfdd1f64bb20"
+    end
+
+    on_intel do
+      url "https://api.github.com/repos/helixerio/memcp/releases/assets/456423444",
+        header: [
+          "Authorization: Bearer #{ENV["HOMEBREW_GITHUB_API_TOKEN"]}",
+          "Accept: application/octet-stream",
+        ]
+      sha256 "3e1c16b13b68e4b946a7ca2ce6c8a35f9c6d324be39c45ee3dfed0774105261d"
+    end
+  end
 
   def install
-    # Build the SvelteKit web dashboard
-    inreplace "ui/package.json", '"svelte": "^5.53.3"', '"svelte": "5.56.4"'
-    system "npm", "install", "--prefix", "ui",
-           *std_npm_args(prefix: false, ignore_scripts: false), "--min-release-age=0"
-    system "npm", "run", "build", "--prefix", "ui"
-    rm_r "internal/dashboard/static"
-    mkdir_p "internal/dashboard/static"
-    cp_r Dir["ui/build/*"], "internal/dashboard/static/"
-
-    # Build the Go binary (embeds static/ via go:embed)
-    ENV["CGO_ENABLED"] = "1"
-    ENV["GOTOOLCHAIN"] = "auto"
-    ldflags = "-s -w -X github.com/helixerio/memcp/cmd.currentVersion=#{version}"
-    system "go", "build", *std_go_args(ldflags:)
+    bin.install "memcp"
   end
 
   service do
