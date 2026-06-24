@@ -1,33 +1,77 @@
+class GitHubReleaseAssetDownloadStrategy < AbstractFileDownloadStrategy
+  def initialize(url, name, version, **meta)
+    @asset_name = meta.fetch(:asset_name)
+    super
+  end
+
+  def fetch(timeout: nil)
+    token = ENV["HOMEBREW_GITHUB_API_TOKEN"].to_s
+    raise CurlDownloadStrategyError.new(url, "HOMEBREW_GITHUB_API_TOKEN is required") if token.empty?
+
+    ohai "Downloading #{url}"
+    if cached_location.exist?
+      puts "Already downloaded: #{cached_location}"
+    else
+      begin
+        Utils::Curl.curl_download(
+          url,
+          to:      temporary_path,
+          header:  [
+            "Authorization: Bearer #{token}",
+            "Accept: application/octet-stream",
+          ],
+          secrets: [token],
+          timeout:,
+        )
+      rescue ErrorDuringExecution => e
+        raise CurlDownloadStrategyError.new(url, e.stderr.strip)
+      end
+      cached_location.dirname.mkpath
+      temporary_path.rename(cached_location.to_s)
+    end
+
+    create_symlink_to_cached_download(cached_location)
+  end
+
+  private
+
+  def resolved_basename
+    @asset_name
+  end
+end
+
 class Memcp < Formula
   desc "Cross-session persistent memory MCP server for coding agents"
   homepage "https://github.com/helixerio/memcp"
-  url "https://github.com/helixerio/memcp/archive/refs/tags/v1.5.5.tar.gz",
-    header: "Authorization: token #{ENV["HOMEBREW_GITHUB_API_TOKEN"]}"
-  sha256 "9b3f1290a7461128993a57e9b15349472b970159544f0857e66cc7432aa315c5"
+  version "1.5.7"
 
-  bottle do
-    root_url "https://github.com/helixerio/homebrew-brews/releases/download/memcp-1.5.5"
-    sha256 cellar: :any_skip_relocation, arm64_sequoia: "55995559aef831207c20e764b2451722d3a84f81d63c04b4531462c828599dec"
-    sha256 cellar: :any,                 arm64_linux:   "bc13f6bbbfbcb6f646c562d0a6f5ce5f90be9d19b251366a3b0946b0ec8f12f4"
-    sha256 cellar: :any,                 x86_64_linux:  "5e8299ba5f1db25536735aa0536aad3ea6bd9d904e27d296dcecbc0f166167db"
+  on_macos do
+    on_arm do
+      url "https://api.github.com/repos/helixerio/memcp/releases/assets/456450147",
+        using:      GitHubReleaseAssetDownloadStrategy,
+        asset_name: "memcp-v1.5.7-darwin-arm64.zip"
+      sha256 "7d15d694bcace1661cf529d1e089451dc4119d1e7e643101e6b5516f5e98ebd1"
+    end
   end
 
-  depends_on "go" => :build
-  depends_on "node" => :build
+  on_linux do
+    on_arm do
+      url "https://api.github.com/repos/helixerio/memcp/releases/assets/456451367",
+        using:      GitHubReleaseAssetDownloadStrategy,
+        asset_name: "memcp-v1.5.7-linux-arm64.zip"
+      sha256 "c32aa84740df1a49a954ce7b38d2da66a4f6b57fe63d1b912c621fa095a98854"
+    end
+
+    on_intel do
+      url "https://api.github.com/repos/helixerio/memcp/releases/assets/456451352",
+        using:      GitHubReleaseAssetDownloadStrategy,
+        asset_name: "memcp-v1.5.7-linux-amd64.zip"
+      sha256 "bf7bf13fec3f3572cc1db32ff826b3a986bc73df175c3c384a0907b76592cb56"
+    end
+  end
 
   def install
-    # Build the SvelteKit web dashboard
-    system "npm", "install", "--prefix", "ui", *std_npm_args(prefix: false, ignore_scripts: false)
-    system "npm", "run", "build", "--prefix", "ui"
-    rm_r "internal/dashboard/static"
-    mkdir_p "internal/dashboard/static"
-    cp_r Dir["ui/build/*"], "internal/dashboard/static/"
-
-    # Build the Go binary (embeds static/ via go:embed)
-    ENV["CGO_ENABLED"] = "1"
-    ENV["GOTOOLCHAIN"] = "auto"
-    ldflags = "-s -w -X github.com/helixerio/memcp/cmd.currentVersion=#{version}"
-    system "go", "build", *std_go_args(ldflags:)
+    bin.install "memcp"
   end
 
   service do
@@ -57,6 +101,6 @@ class Memcp < Formula
   end
 
   test do
-    assert_match "memcp version: #{version}", shell_output("#{bin}/memcp version")
+    assert_match "memcp version: v#{version}", shell_output("#{bin}/memcp version")
   end
 end

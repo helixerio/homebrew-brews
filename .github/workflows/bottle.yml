@@ -9,7 +9,7 @@ jobs:
   bottle:
     name: bottle (${{ matrix.name }})
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         include:
           - name: linux-amd64
