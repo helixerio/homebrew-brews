@@ -1,3 +1,45 @@
+class GitHubReleaseAssetDownloadStrategy < AbstractFileDownloadStrategy
+  def initialize(url, name, version, **meta)
+    @asset_name = meta.fetch(:asset_name)
+    super
+  end
+
+  def fetch(timeout: nil)
+    token = ENV["HOMEBREW_GITHUB_API_TOKEN"].to_s
+    raise CurlDownloadStrategyError.new(url, "HOMEBREW_GITHUB_API_TOKEN is required") if token.empty?
+
+    ohai "Downloading #{url}"
+    if cached_location.exist?
+      puts "Already downloaded: #{cached_location}"
+    else
+      begin
+        Utils::Curl.curl_download(
+          url,
+          to:      temporary_path,
+          header:  [
+            "Authorization: Bearer #{token}",
+            "Accept: application/octet-stream",
+          ],
+          secrets: [token],
+          timeout:,
+        )
+      rescue ErrorDuringExecution => e
+        raise CurlDownloadStrategyError.new(url, e.stderr.strip)
+      end
+      cached_location.dirname.mkpath
+      temporary_path.rename(cached_location.to_s)
+    end
+
+    create_symlink_to_cached_download(cached_location)
+  end
+
+  private
+
+  def resolved_basename
+    @asset_name
+  end
+end
+
 class Memcp < Formula
   desc "Cross-session persistent memory MCP server for coding agents"
   homepage "https://github.com/helixerio/memcp"
@@ -6,10 +48,8 @@ class Memcp < Formula
   on_macos do
     on_arm do
       url "https://api.github.com/repos/helixerio/memcp/releases/assets/456422547",
-        headers: [
-          "Authorization: Bearer #{ENV["HOMEBREW_GITHUB_API_TOKEN"]}",
-          "Accept: application/octet-stream",
-        ]
+        using:      GitHubReleaseAssetDownloadStrategy,
+        asset_name: "memcp-v1.5.6-darwin-arm64.zip"
       sha256 "16623107f3070697017a844cae4f2be4b2d45c630822fd1891a58cbf54c1bb98"
     end
   end
@@ -17,19 +57,15 @@ class Memcp < Formula
   on_linux do
     on_arm do
       url "https://api.github.com/repos/helixerio/memcp/releases/assets/456423436",
-        headers: [
-          "Authorization: Bearer #{ENV["HOMEBREW_GITHUB_API_TOKEN"]}",
-          "Accept: application/octet-stream",
-        ]
+        using:      GitHubReleaseAssetDownloadStrategy,
+        asset_name: "memcp-v1.5.6-linux-arm64.zip"
       sha256 "4e826af4e8831cd56071cc2c2ae4a7f916054b63bd47a4656c13cfdd1f64bb20"
     end
 
     on_intel do
       url "https://api.github.com/repos/helixerio/memcp/releases/assets/456423444",
-        headers: [
-          "Authorization: Bearer #{ENV["HOMEBREW_GITHUB_API_TOKEN"]}",
-          "Accept: application/octet-stream",
-        ]
+        using:      GitHubReleaseAssetDownloadStrategy,
+        asset_name: "memcp-v1.5.6-linux-amd64.zip"
       sha256 "3e1c16b13b68e4b946a7ca2ce6c8a35f9c6d324be39c45ee3dfed0774105261d"
     end
   end
@@ -65,6 +101,6 @@ class Memcp < Formula
   end
 
   test do
-    assert_match "memcp version: #{version}", shell_output("#{bin}/memcp version")
+    assert_match "memcp version: v#{version}", shell_output("#{bin}/memcp version")
   end
 end
