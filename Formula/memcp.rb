@@ -1,3 +1,5 @@
+require "utils/github"
+
 class GitHubReleaseAssetDownloadStrategy < AbstractFileDownloadStrategy
   def initialize(url, name, version, **meta)
     @asset_name = meta.fetch(:asset_name)
@@ -5,8 +7,13 @@ class GitHubReleaseAssetDownloadStrategy < AbstractFileDownloadStrategy
   end
 
   def fetch(timeout: nil)
-    token = ENV["HOMEBREW_GITHUB_API_TOKEN"].to_s
-    raise CurlDownloadStrategyError.new(url, "HOMEBREW_GITHUB_API_TOKEN is required") if token.empty?
+    token = GitHub::API.credentials.to_s
+    if token.empty?
+      raise CurlDownloadStrategyError.new(
+        url,
+        "GitHub credentials are required; run `gh auth login` or set HOMEBREW_GITHUB_API_TOKEN",
+      )
+    end
 
     ohai "Downloading #{url}"
     if cached_location.exist?
