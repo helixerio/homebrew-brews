@@ -6,7 +6,7 @@ class Memcp < Formula
   on_macos do
     on_arm do
       url "https://api.github.com/repos/helixerio/memcp/releases/assets/456422547",
-        header: [
+        headers: [
           "Authorization: Bearer #{ENV["HOMEBREW_GITHUB_API_TOKEN"]}",
           "Accept: application/octet-stream",
         ]
@@ -17,7 +17,7 @@ class Memcp < Formula
   on_linux do
     on_arm do
       url "https://api.github.com/repos/helixerio/memcp/releases/assets/456423436",
-        header: [
+        headers: [
           "Authorization: Bearer #{ENV["HOMEBREW_GITHUB_API_TOKEN"]}",
           "Accept: application/octet-stream",
         ]
@@ -26,7 +26,7 @@ class Memcp < Formula
 
     on_intel do
       url "https://api.github.com/repos/helixerio/memcp/releases/assets/456423444",
-        header: [
+        headers: [
           "Authorization: Bearer #{ENV["HOMEBREW_GITHUB_API_TOKEN"]}",
           "Accept: application/octet-stream",
         ]
