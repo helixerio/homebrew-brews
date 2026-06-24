@@ -10,7 +10,9 @@ class Memcp < Formula
 
   def install
     # Build the SvelteKit web dashboard
-    system "npm", "install", "--prefix", "ui", *std_npm_args(prefix: false, ignore_scripts: false)
+    inreplace "ui/package.json", '"svelte": "^5.53.3"', '"svelte": "5.56.4"'
+    system "npm", "install", "--prefix", "ui",
+           *std_npm_args(prefix: false, ignore_scripts: false), "--min-release-age=0"
     system "npm", "run", "build", "--prefix", "ui"
     rm_r "internal/dashboard/static"
     mkdir_p "internal/dashboard/static"
