@@ -52,6 +52,13 @@ class Memcp < Formula
   homepage "https://github.com/helixerio/memcp"
   version "1.5.8"
 
+  bottle do
+    root_url "https://github.com/helixerio/homebrew-brews/releases/download/memcp-1.5.8"
+    sha256 cellar: :any_skip_relocation, arm64_tahoe:  "c6ebca4e6b3777e3d1eac5bb48d192819861d63d1a9862481dd1e4cc417b5b2e"
+    sha256 cellar: :any_skip_relocation, arm64_linux:  "f658ead87d280f9a09f1c1446626e817a61a473c6589bd56fe794c1dec3eafa0"
+    sha256 cellar: :any_skip_relocation, x86_64_linux: "9d240ab5e069aaf543ef379e58fa280ed3d718502f7dde2ed2302d7219a98566"
+  end
+
   on_macos do
     on_arm do
       url "https://api.github.com/repos/helixerio/memcp/releases/assets/460428653",
