@@ -50,30 +50,30 @@ end
 class Memcp < Formula
   desc "Cross-session persistent memory MCP server for coding agents"
   homepage "https://github.com/helixerio/memcp"
-  version "1.5.7"
+  version "1.5.8"
 
   on_macos do
     on_arm do
-      url "https://api.github.com/repos/helixerio/memcp/releases/assets/456450147",
+      url "https://api.github.com/repos/helixerio/memcp/releases/assets/460428653",
         using:      GitHubReleaseAssetDownloadStrategy,
-        asset_name: "memcp-v1.5.7-darwin-arm64.zip"
-      sha256 "7d15d694bcace1661cf529d1e089451dc4119d1e7e643101e6b5516f5e98ebd1"
+        asset_name: "memcp-v1.5.8-darwin-arm64.zip"
+      sha256 "37c3351301948865b033b337fb4bb8815d156094dfb60a5971c4dc4a1aed7810"
     end
   end
 
   on_linux do
     on_arm do
-      url "https://api.github.com/repos/helixerio/memcp/releases/assets/456451367",
+      url "https://api.github.com/repos/helixerio/memcp/releases/assets/460429382",
         using:      GitHubReleaseAssetDownloadStrategy,
-        asset_name: "memcp-v1.5.7-linux-arm64.zip"
-      sha256 "c32aa84740df1a49a954ce7b38d2da66a4f6b57fe63d1b912c621fa095a98854"
+        asset_name: "memcp-v1.5.8-linux-arm64.zip"
+      sha256 "942ca065d714e00e8a024c949a33e89ca9040565d98f79914d93494d78dd3d45"
     end
 
     on_intel do
-      url "https://api.github.com/repos/helixerio/memcp/releases/assets/456451352",
+      url "https://api.github.com/repos/helixerio/memcp/releases/assets/460429376",
         using:      GitHubReleaseAssetDownloadStrategy,
-        asset_name: "memcp-v1.5.7-linux-amd64.zip"
-      sha256 "bf7bf13fec3f3572cc1db32ff826b3a986bc73df175c3c384a0907b76592cb56"
+        asset_name: "memcp-v1.5.8-linux-amd64.zip"
+      sha256 "79980681b18bd493f3ff26bc0eec1810fceaec36ad06c87ec6f3ec8713f0df85"
     end
   end
 
